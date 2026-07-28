@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hub de Simuladores - Senai/Etec</title>
+    
+    <!-- Tailwind CSS para Estilização Minimalista e Moderna -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons para os ícones vetoriais -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Configuração de fontes e animações base -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* bg-slate-50 */
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        .animate-slide-up {
+            animation: slideUp 0.3s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Ocultar scrollbar mantendo a funcionalidade */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <nav class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <!-- Logo -->
+                <div class="flex items-center space-x-3 cursor-pointer select-none" onclick="app.switchView('student')">
+                    <div class="bg-slate-800 p-2 rounded-lg">
+                        <i data-lucide="layout-dashboard" class="h-5 w-5 text-white"></i>
+                    </div>
+                    <span class="font-bold text-xl text-slate-800 tracking-tight">
+                        Simula<span class="text-blue-600">Hub</span>
+                    </span>
+                </div>
+                
+                <!-- Botão de Ação (Alternar Visão) -->
+                <div id="nav-actions">
+                    <!-- Renderizado via JS -->
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main id="main-content" class="flex-grow py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+        <!-- O conteúdo será injetado aqui via JavaScript -->
+    </main>
+
+    <!-- Modal de Adição (Oculto por padrão) -->
+    <div id="add-modal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-slide-up">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-slate-800">Novo Simulador</h3>
+                <button onclick="app.closeModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form id="add-form" onsubmit="app.handleAddSimulator(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Título</label>
+                        <input required type="text" id="sim-title" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="Ex: Simulador de Redes">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
+                        <select id="sim-category" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+                            <option value="Hardware">Hardware</option>
+                            <option value="Redes">Redes</option>
+                            <option value="Física">Física</option>
+                            <option value="Indústria 4.0">Indústria 4.0</option>
+                            <option value="Geral">Geral</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
+                        <textarea required id="sim-desc" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" rows="3" placeholder="Breve descrição do laboratório..."></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Link de Acesso (URL)</label>
+                        <input required type="url" id="sim-url" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="https://...">
+                    </div>
+                </div>
+                <div class="mt-8 flex justify-end space-x-3">
+                    <button type="button" onclick="app.closeModal()" class="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors flex items-center">
+                        <i data-lucide="check" class="w-4 h-4 mr-2"></i> Salvar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const app = {
+            view: 'student', // 'student' ou 'admin'
+            simulators: [],
+            
+            // Dados iniciais caso seja a primeira vez abrindo
+            defaultData: [
+                {
+                    id: 1,
+                    title: "Eletrônica Básica: Tinkercad Clone",
+                    description: "Simulador interativo de circuitos com resistores, LEDs e multímetros. Inclui regras de segurança contra curtos.",
+                    category: "Hardware",
+                    url: "#",
+                    icon: "cpu"
+                },
+                {
+                    id: 2,
+                    title: "Fluxo de Requisições HTTP",
+                    description: "Visualize a jornada do dado entre FrontEnd, API, Backend e Banco de Dados em tempo real.",
+                    category: "Redes",
+                    url: "#",
+                    icon: "database"
+                },
+                {
+                    id: 3,
+                    title: "Laboratório: Lei de Ohm",
+                    description: "Entenda a relação entre Tensão, Corrente e Resistência através da analogia de tubulação de água.",
+                    category: "Física",
+                    url: "#",
+                    icon: "zap"
+                },
+                {
+                    id: 4,
+                    title: "Dashboard Industrial IIoT",
+                    description: "Simulação de monitoramento de maquinário de Indústria 4.0 com detecção de falhas e envio de MQTT.",
+                    category: "Indústria 4.0",
+                    url: "#",
+                    icon: "monitor"
+                }
+            ],
+
+            // Inicialização da aplicação
+            init() {
+                // Carrega dados do LocalStorage ou usa o padrão
+                const saved = localStorage.getItem('simulaHub_data');
+                if (saved) {
+                    this.simulators = JSON.parse(saved);
+                } else {
+                    this.simulators = [...this.defaultData];
+                    this.saveData();
+                }
+                
+                this.render();
+            },
+
+            // Salva no LocalStorage
+            saveData() {
+                localStorage.setItem('simulaHub_data', JSON.stringify(this.simulators));
+            },
+
+            // Alterna entre visão do aluno e admin
+            switchView(targetView) {
+                this.view = targetView;
+                this.render();
+            },
+
+            openModal() {
+                document.getElementById('add-modal').classList.remove('hidden');
+                document.getElementById('add-modal').classList.add('flex');
+            },
+
+            closeModal() {
+                document.getElementById('add-modal').classList.add('hidden');
+                document.getElementById('add-modal').classList.remove('flex');
+                document.getElementById('add-form').reset();
+            },
+
+            handleAddSimulator(e) {
+                e.preventDefault();
+                
+                const title = document.getElementById('sim-title').value;
+                const category = document.getElementById('sim-category').value;
+                const description = document.getElementById('sim-desc').value;
+                const url = document.getElementById('sim-url').value;
+
+                // Mapeamento de ícones por categoria
+                let icon = 'monitor';
+                if(category === 'Hardware') icon = 'cpu';
+                if(category === 'Redes') icon = 'database';
+                if(category === 'Física') icon = 'zap';
+
+                const newId = this.simulators.length > 0 ? Math.max(...this.simulators.map(s => s.id)) + 1 : 1;
+
+                this.simulators.push({
+                    id: newId,
+                    title,
+                    category,
+                    description,
+                    url,
+                    icon
+                });
+
+                this.saveData();
+                this.closeModal();
+                this.render();
+            },
+
+            deleteSimulator(id) {
+                // Remoção direta para evitar o uso de confirm/alerts intrusivos
+                this.simulators = this.simulators.filter(s => s.id !== id);
+                this.saveData();
+                this.render();
+            },
+
+            renderStudentView() {
+                let html = `
+                    <div class="text-center mb-12 animate-fade-in">
+                        <h2 class="text-3xl font-extrabold text-slate-800 mb-4 tracking-tight">Laboratórios Virtuais e Simuladores</h2>
+                        <p class="text-slate-600 max-w-2xl mx-auto text-lg">
+                            Explore os conceitos de tecnologia, eletrônica e redes através de ferramentas interativas desenvolvidas para a prática.
+                        </p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-slide-up">
+                `;
+
+                if (this.simulators.length === 0) {
+                    html += `
+                        <div class="col-span-full text-center py-12 text-slate-500 bg-white rounded-xl border border-dashed border-slate-300">
+                            <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-3 text-slate-400"></i>
+                            <p>Nenhum simulador disponível no momento.</p>
+                        </div>
+                    `;
+                }
+
+                this.simulators.forEach(sim => {
+                    html += `
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 hover:shadow-lg transition-all duration-300 flex flex-col h-full group hover:-translate-y-1 relative overflow-hidden">
+                            <div class="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -z-0 opacity-50 group-hover:bg-blue-100 transition-colors"></div>
+                            
+                            <div class="relative z-10 flex items-center space-x-3 mb-5">
+                                <div class="p-3 bg-blue-50 text-blue-600 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300 shadow-sm">
+                                    <i data-lucide="${sim.icon}" class="w-6 h-6"></i>
+                                </div>
+                                <span class="text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+                                    ${sim.category}
+                                </span>
+                            </div>
+                            
+                            <h3 class="relative z-10 text-xl font-bold text-slate-800 mb-3 group-hover:text-blue-700 transition-colors">${sim.title}</h3>
+                            <p class="relative z-10 text-slate-600 flex-grow text-sm mb-8 leading-relaxed">
+                                ${sim.description}
+                            </p>
+                            
+                            <a href="${sim.url}" target="_blank" rel="noopener noreferrer" class="relative z-10 mt-auto w-full inline-flex items-center justify-center px-4 py-2.5 font-semibold rounded-xl shadow-sm text-white bg-slate-800 hover:bg-slate-700 transition-all active:scale-95">
+                                Acessar Simulador <i data-lucide="external-link" class="ml-2 w-4 h-4"></i>
+                            </a>
+                        </div>
+                    `;
+                });
+
+                html += `</div>`;
+                return html;
+            },
+
+            renderAdminView() {
+                let html = `
+                    <div class="animate-fade-in max-w-5xl mx-auto">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                            <div class="mb-4 sm:mb-0">
+                                <h2 class="text-2xl font-bold text-slate-800">Gerenciamento de Simuladores</h2>
+                                <p class="text-slate-500 text-sm mt-1">Adicione ou remova laboratórios da vitrine principal.</p>
+                            </div>
+                            <button onclick="app.openModal()" class="inline-flex items-center px-4 py-2.5 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-sm active:scale-95">
+                                <i data-lucide="plus-circle" class="w-5 h-5 mr-2"></i> Novo Simulador
+                            </button>
+                        </div>
+
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden animate-slide-up">
+                            <div class="overflow-x-auto no-scrollbar">
+                                <table class="w-full text-left text-sm text-slate-600">
+                                    <thead class="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-100">
+                                        <tr>
+                                            <th scope="col" class="px-6 py-4 font-semibold">Simulador</th>
+                                            <th scope="col" class="px-6 py-4 font-semibold">Categoria</th>
+                                            <th scope="col" class="px-6 py-4 font-semibold">Link</th>
+                                            <th scope="col" class="px-6 py-4 font-semibold text-right">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100">
+                `;
+
+                if (this.simulators.length === 0) {
+                    html += `
+                        <tr>
+                            <td colspan="4" class="px-6 py-8 text-center text-slate-500">
+                                Nenhum simulador cadastrado.
+                            </td>
+                        </tr>
+                    `;
+                }
+
+                this.simulators.forEach(sim => {
+                    html += `
+                        <tr class="bg-white hover:bg-slate-50/50 transition-colors group">
+                            <td class="px-6 py-4 w-2/5">
+                                <div class="font-bold text-slate-800 mb-1">${sim.title}</div>
+                                <div class="text-slate-500 text-xs line-clamp-1" title="${sim.description}">${sim.description}</div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="bg-slate-100 text-slate-600 font-medium px-2.5 py-1 rounded-md text-xs">
+                                    ${sim.category}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <a href="${sim.url}" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline flex items-center font-medium max-w-[150px] truncate">
+                                    <i data-lucide="link" class="w-3 h-3 mr-1 flex-shrink-0"></i> Acessar
+                                </a>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <button onclick="app.deleteSimulator(${sim.id})" class="text-slate-300 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100" title="Deletar">
+                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                html += `
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start text-amber-800 text-sm">
+                            <i data-lucide="info" class="w-5 h-5 mr-3 flex-shrink-0 mt-0.5 text-amber-500"></i>
+                            <p><strong>Nota:</strong> As alterações feitas aqui são salvas no seu navegador (Local Storage). Para adicionar um simulador permanentemente para todos os alunos em um site estático, edite o array <code>defaultData</code> no código-fonte <code>.html</code> antes de fazer o upload para a hospedagem.</p>
+                        </div>
+                    </div>
+                `;
+                return html;
+            },
+
+            render() {
+                const mainContent = document.getElementById('main-content');
+                const navActions = document.getElementById('nav-actions');
+
+                if (this.view === 'student') {
+                    mainContent.innerHTML = this.renderStudentView();
+                    navActions.innerHTML = `
+                        <button onclick="app.switchView('admin')" class="inline-flex items-center text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors p-2 rounded-lg hover:bg-slate-100">
+                            <i data-lucide="settings" class="w-5 h-5 mr-2"></i> Área do Professor
+                        </button>
+                    `;
+                } else {
+                    mainContent.innerHTML = this.renderAdminView();
+                    navActions.innerHTML = `
+                        <button onclick="app.switchView('student')" class="inline-flex items-center px-4 py-2 border border-slate-200 text-sm font-semibold rounded-lg text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm">
+                            <i data-lucide="arrow-left" class="w-4 h-4 mr-2"></i> Voltar à Vitrine
+                        </button>
+                    `;
+                }
+
+                // Inicializa os ícones renderizados dinamicamente pelo JS
+                lucide.createIcons();
+            }
+        };
+
+        // Iniciar a aplicação quando o documento estiver pronto
+        document.addEventListener('DOMContentLoaded', () => {
+            app.init();
+        });
+    </script>
+</body>
+</html>
